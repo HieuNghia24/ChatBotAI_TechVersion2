@@ -66,9 +66,7 @@ app.get("/api/reload-faq", (req,res)=>{
 });
 
 // serve index
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/login.html'); // Thêm dòng này!
-});
+
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -76,4 +74,71 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
+});
+
+
+
+
+
+
+
+const express = require('express');
+const session = require('express-session');
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Cấu hình session
+app.use(session({
+  secret: 'your_secret_key',
+  resave: false,
+  saveUninitialized: true
+}));
+
+// Middleware để parse form data
+app.use(express.urlencoded({ extended: true }));
+
+// Static files
+app.use(express.static('public'));
+
+// Route mặc định -> chuyển về login.html
+app.get('/', (req, res) => {
+  if (req.session.loggedIn) {
+    res.redirect('/index.html');
+  } else {
+    res.redirect('/login.html');
+  }
+});
+
+// Xử lý login (giả định user/pass là cố định)
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  // Kiểm tra tài khoản
+  if (username === 'admin' && password === '1234') {
+    req.session.loggedIn = true;
+    res.redirect('/index.html');
+  } else {
+    res.send('Login thất bại. <a href="/login.html">Thử lại</a>');
+  }
+});
+
+// Middleware kiểm tra đăng nhập trước khi truy cập index.html
+app.get('/index.html', (req, res, next) => {
+  if (req.session.loggedIn) {
+    return next(); // Cho phép truy cập file index.html
+  } else {
+    return res.redirect('/login.html');
+  }
+});
+
+// Đăng xuất
+app.get('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/login.html');
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
