@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import xlsx from "xlsx";
 import fs from "fs";
+import session from "express-session"; // Thêm dòng này
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,10 +11,62 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Để đọc form login
+
+// Cấu hình session
+app.use(session({
+  secret: 'your_secret_key', // Thay bằng key mạnh
+  resave: false,
+  saveUninitialized: true
+}));
+
+// Static files
 app.use(express.static(path.join(__dirname, "public")));
 
-// Load FAQ safely
+// ========== ĐĂNG NHẬP ==========
+
+// Route GET: Mặc định chuyển về login nếu chưa login
+app.get("/", (req, res) => {
+  if (req.session.loggedIn) {
+    res.redirect("/index.html");
+  } else {
+    res.redirect("/login.html");
+  }
+});
+
+// Route POST: Xử lý form đăng nhập
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  // Bạn có thể thay đoạn này bằng logic check thật
+  if (username === "admin" && password === "1234") {
+    req.session.loggedIn = true;
+    res.redirect("/index.html");
+  } else {
+    res.send("Sai tài khoản hoặc mật khẩu. <a href='/login.html'>Thử lại</a>");
+  }
+});
+
+// Route logout
+app.get("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.redirect("/login.html");
+  });
+});
+
+// Bảo vệ truy cập index.html
+app.get("/index.html", (req, res, next) => {
+  if (req.session.loggedIn) {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+  } else {
+    res.redirect("/login.html");
+  }
+});
+
+// ========== API CHATBOT ==========
+
 let faqs = [];
 function loadFaq(){
   try{
@@ -36,12 +89,10 @@ loadFaq();
 
 app.get("/ping", (req,res) => res.json({ok:true}));
 
-// POST /api/ask - find best match (contains)
 app.post("/api/ask", (req, res) => {
   const question = (req.body?.question || "").toString().trim().toLowerCase();
   if(!question) return res.json({ answer: "Vui lòng nhập câu hỏi." });
 
-  // Exact contains match on 'question' column (case-insensitive)
   let answer = null;
   for (const row of faqs) {
     if (!row.question) continue;
@@ -59,21 +110,12 @@ app.post("/api/ask", (req, res) => {
   return res.json({ answer });
 });
 
-// reload endpoint
 app.get("/api/reload-faq", (req,res)=>{
   loadFaq();
   res.json({ok:true, count: faqs.length});
 });
 
-// serve index
-
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
-
-
