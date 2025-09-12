@@ -66,6 +66,10 @@ app.get("/api/reload-faq", (req,res)=>{
 });
 
 // serve index
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/login.html'); // Thêm dòng này!
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
